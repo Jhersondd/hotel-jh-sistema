@@ -11,6 +11,8 @@ logger = logging.getLogger("hotel_bot.storage")
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 RESERVATIONS_FILE = os.path.join(DATA_DIR, "reservations.json")
 ROOMS_FILE = os.path.join(DATA_DIR, "rooms.json")
+SALES_FILE = os.path.join(DATA_DIR, "sales.json")
+CHAT_LOGS_FILE = os.path.join(DATA_DIR, "chat_logs.json")
 
 DEFAULT_ROOMS = [
     {
@@ -50,6 +52,12 @@ class StorageService:
                 json.dump(DEFAULT_ROOMS, f, indent=2, ensure_ascii=False)
         if not os.path.exists(RESERVATIONS_FILE):
             with open(RESERVATIONS_FILE, "w", encoding="utf-8") as f:
+                json.dump([], f, indent=2, ensure_ascii=False)
+        if not os.path.exists(SALES_FILE):
+            with open(SALES_FILE, "w", encoding="utf-8") as f:
+                json.dump([], f, indent=2, ensure_ascii=False)
+        if not os.path.exists(CHAT_LOGS_FILE):
+            with open(CHAT_LOGS_FILE, "w", encoding="utf-8") as f:
                 json.dump([], f, indent=2, ensure_ascii=False)
 
     def get_all_rooms(self) -> List[Dict]:
@@ -265,5 +273,141 @@ class StorageService:
             if r.get("fecha_salida") == today_str and r.get("estado_reserva") in ["CONFIRMADA", "EN_ESTADIA"]:
                 checkouts_today.append(r)
         return checkouts_today
+
+    def record_sale(self, res_data: dict, agent: str = "Bot Autónomo") -> dict:
+        """
+        Registra una venta comercial en sales.json, en Redis y en Google Sheets (pestaña 'Ventas').
+        """
+        import random
+        sale_id = f"VTA-{datetime.now().strftime('%Y%m%d')}-{random.randint(1000, 9999)}"
+        sale = {
+            "id_venta": sale_id,
+            "fecha_venta": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "id_reserva": res_data.get("id_reserva", ""),
+            "habitacion": res_data.get("id_habitacion", ""),
+            "huesped": res_data.get("nombre_huesped", ""),
+            "dni": res_data.get("dni_documento", ""),
+            "telefono": res_data.get("telefono_wa", ""),
+            "noches": res_data.get("noches", 1),
+            "monto_total": float(res_data.get("monto_total", 0.0)),
+            "metodo_pago": res_data.get("metodo_pago", "Transferencia / Yape"),
+            "estado_pago": res_data.get("estado_pago", "PAGADO"),
+            "canal_venta": "WhatsApp",
+            "agente_cierre": agent
+        }
+
+        # 1. Guardar en JSON local
+        try:
+            sales = self.get_all_sales()
+            sales.append(sale)
+            with open(SALES_FILE, "w", encoding="utf-8") as f:
+                json.dump(sales, f, indent=2, ensure_ascii=False)
+            logger.info(f"Venta {sale_id} registrada localmente en {SALES_FILE}")
+        except Exception as e:
+            logger.error(f"Error guardando venta localmente: {e}")
+
+        # 2. Guardar en Google Sheets (pestaña 'Ventas')
+        try:
+            from services.sheets_service import sheets_service
+            sheets_service.record_sale(sale)
+        except Exception as e:
+            logger.warning(f"Error sincronizando venta con Google Sheets: {e}")
+
+        return sale
+
+    def get_all_sales(self) -> List[Dict]:
+        """Obtiene todas las ventas registradas."""
+        if os.path.exists(SALES_FILE):
+            try:
+                with open(SALES_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.error(f"Error leyendo {SALES_FILE}: {e}")
+        return []
+
+    def record_chat_log(self, phone: str, guest_name: str, role: str, message: str, state: str, intent: str = "Consulta", success: bool = True) -> dict:
+        """
+        Registra cada interacción de chat para análisis de embudo comercial y reentrenamiento.
+        """
+        log_entry = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "telefono": phone,
+            "huesped": guest_name,
+            "rol": role,
+            "mensaje": str(message)[:300],
+            "estado_flujo": state,
+            "intencion": intent,
+            "exito": success
+        }
+
+        # 1. Guardar en JSON local (con rotación para no superar 5000 logs)
+        try:
+            logs = []
+            if os.path.exists(CHAT_LOGS_FILE):
+                try:
+                    with open(CHAT_LOGS_FILE, "r", encoding="utf-8") as f:
+                        logs = json.load(f)
+                except Exception:
+                    logs = []
+
+            logs.append(log_entry)
+            if len(logs) > 5000:
+                logs = logs[-4000:]
+
+            with open(CHAT_LOGS_FILE, "w", encoding="utf-8") as f:
+                json.dump(logs, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            logger.debug(f"Error guardando log de chat local: {e}")
+
+        # 2. Guardar en Google Sheets (pestaña 'Logs_Conversaciones')
+        try:
+            from services.sheets_service import sheets_service
+            sheets_service.record_chat_log(log_entry)
+        except Exception:
+            pass
+
+        return log_entry
+
+    def get_chat_logs(self, limit: int = 100) -> List[Dict]:
+        """Retorna los últimos N logs conversacionales."""
+        if os.path.exists(CHAT_LOGS_FILE):
+            try:
+                with open(CHAT_LOGS_FILE, "r", encoding="utf-8") as f:
+                    logs = json.load(f)
+                    return logs[-limit:]
+            except Exception:
+                pass
+        return []
+
+    def get_sales_analytics(self) -> Dict:
+        """
+        Calcula métricas comerciales consolidadas para dashboard de gerencia.
+        """
+        sales = self.get_all_sales()
+        reservations = self.get_all_reservations()
+
+        total_ventas = len(sales)
+        ingresos_totales = sum(s.get("monto_total", 0.0) for s in sales)
+        ticket_promedio = (ingresos_totales / total_ventas) if total_ventas > 0 else 0.0
+
+        habitaciones_populares = {}
+        for s in sales:
+            hab = s.get("habitacion", "Otro")
+            habitaciones_populares[hab] = habitaciones_populares.get(hab, 0) + 1
+
+        metodos_pago = {}
+        for s in sales:
+            m = s.get("metodo_pago", "Otro")
+            metodos_pago[m] = metodos_pago.get(m, 0) + 1
+
+        return {
+            "total_ventas_conteo": total_ventas,
+            "ingresos_totales_soles": round(ingresos_totales, 2),
+            "ticket_promedio_soles": round(ticket_promedio, 2),
+            "habitaciones_mas_vendidas": habitaciones_populares,
+            "metodos_pago_distribucion": metodos_pago,
+            "reservas_activas_conteo": len(reservations),
+            "tasa_conversion_estimada": f"{round((total_ventas / max(len(reservations) + total_ventas, 1)) * 100, 1)}%"
+        }
 
 storage_service = StorageService()

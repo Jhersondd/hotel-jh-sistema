@@ -184,7 +184,6 @@ class SheetsService:
 
         try:
             ws = self.sheet.worksheet("Leads_CRM")
-            # Podríamos buscar si ya existe o simplemente añadir fila de interacción
             row = [
                 f"LEAD-{phone[-4:]}",
                 phone,
@@ -193,8 +192,80 @@ class SheetsService:
                 "Bot Autónomo",
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             ]
+            ws.append_row(row)
         except Exception as e:
             logger.warning(f"Error registrando lead en Google Sheets: {e}")
+
+    def record_sale(self, sale_data: dict) -> bool:
+        """
+        Registra una venta confirmada en la hoja 'Ventas' para analítica financiera y comercial.
+        """
+        if not self.sheet:
+            return False
+        try:
+            try:
+                ws = self.sheet.worksheet("Ventas")
+            except Exception:
+                ws = self.sheet.add_worksheet(title="Ventas", rows=500, cols=13)
+                ws.append_row([
+                    "ID_Venta", "Fecha_Venta", "ID_Reserva", "Habitacion", "Huesped",
+                    "DNI", "Telefono", "Noches", "Monto_Total", "Metodo_Pago",
+                    "Estado_Pago", "Canal_Venta", "Agente_Cierre"
+                ])
+
+            row = [
+                sale_data.get("id_venta", ""),
+                sale_data.get("fecha_venta", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                sale_data.get("id_reserva", ""),
+                sale_data.get("habitacion", ""),
+                sale_data.get("huesped", ""),
+                sale_data.get("dni", ""),
+                sale_data.get("telefono", ""),
+                sale_data.get("noches", 1),
+                sale_data.get("monto_total", 0.0),
+                sale_data.get("metodo_pago", "Transferencia / Yape"),
+                sale_data.get("estado_pago", "PAGADO"),
+                sale_data.get("canal_venta", "WhatsApp"),
+                sale_data.get("agente_cierre", "Bot Autónomo")
+            ]
+            ws.append_row(row)
+            logger.info(f"Venta {sale_data.get('id_venta')} registrada en pestaña 'Ventas' de Google Sheets")
+            return True
+        except Exception as e:
+            logger.error(f"Error registrando venta en Google Sheets: {e}")
+            return False
+
+    def record_chat_log(self, log_data: dict) -> bool:
+        """
+        Registra interacciones en la pestaña 'Logs_Conversaciones' para optimización del agente comercial.
+        """
+        if not self.sheet:
+            return False
+        try:
+            try:
+                ws = self.sheet.worksheet("Logs_Conversaciones")
+            except Exception:
+                ws = self.sheet.add_worksheet(title="Logs_Conversaciones", rows=1000, cols=8)
+                ws.append_row([
+                    "Timestamp", "Telefono", "Huesped", "Rol",
+                    "Mensaje", "Estado_Flujo", "Intencion_Detectada", "Exito"
+                ])
+
+            row = [
+                log_data.get("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                log_data.get("telefono", ""),
+                log_data.get("huesped", ""),
+                log_data.get("rol", "Huesped"),
+                str(log_data.get("mensaje", ""))[:300],
+                log_data.get("estado_flujo", ""),
+                log_data.get("intencion", "Consulta"),
+                "SI" if log_data.get("exito", True) else "NO"
+            ]
+            ws.append_row(row)
+            return True
+        except Exception as e:
+            logger.debug(f"Error registrando log de chat en Google Sheets: {e}")
+            return False
 
     def get_ignored_phones_from_sheet(self) -> set:
         """

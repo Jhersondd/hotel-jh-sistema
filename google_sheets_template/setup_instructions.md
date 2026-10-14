@@ -37,11 +37,27 @@ Coloca estos nombres en la Fila 1:
 
 ---
 
-### Pestaña 4: `Logs_Transacciones`
+### Pestaña 4: `Ventas` (Base de Ventas e Ingresos)
+Coloca estos nombres en la Fila 1:
+| A | B | C | D | E | F | G | H | I | J | K | L | M |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `ID_Venta` | `Fecha_Venta` | `ID_Reserva` | `Habitacion` | `Huesped` | `DNI` | `Telefono` | `Noches` | `Monto_Total` | `Metodo_Pago` | `Estado_Pago` | `Canal_Venta` | `Agente_Cierre` |
+
+---
+
+### Pestaña 5: `Logs_Conversaciones` (Auditoría de Chats y Optimización de Ventas)
+Coloca estos nombres en la Fila 1:
+| A | B | C | D | E | F | G | H |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `Timestamp` | `Telefono` | `Huesped` | `Rol` | `Mensaje` | `Estado_Flujo` | `Intencion_Detectada` | `Exito` |
+
+---
+
+### Pestaña 6: `Chats_Ignorados` (Contactos Personales / Archivados)
 Coloca estos nombres en la Fila 1:
 | A | B | C | D |
 | :--- | :--- | :--- | :--- |
-| `timestamp` | `id_reserva` | `evento` | `detalle` |
+| `Telefono` | `Nombre` | `Motivo` | `Fecha_Agregado` |
 
 ---
 

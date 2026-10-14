@@ -103,6 +103,9 @@ async def confirm_and_deliver_pin(phone: str, res_data: dict = None) -> bool:
     # Guardar en almacenamiento local JSON + Redis + Google Sheets
     storage_service.save_reservation(final_res)
 
+    # Registrar venta comercial en el libro de ventas y analítica
+    storage_service.record_sale(final_res, agent="Bot Autónomo")
+
     # Liberar el hold temporal de Redis
     redis_service.release_room_hold(room_id, checkin, checkout)
     redis_service.clear_user_session(phone)
@@ -138,6 +141,16 @@ async def handle_guest_message(phone: str, user_name: str, message_text: str):
     current_state = session.get("state", "START")
 
     logger.info(f"Procesando mensaje de {phone} en estado [{current_state}]: '{text}'")
+
+    # Registrar interacción conversacional para analítica y auditoría
+    storage_service.record_chat_log(
+        phone=phone,
+        guest_name=user_name,
+        role="Huesped",
+        message=text,
+        state=current_state,
+        intent="Interaccion"
+    )
 
     # Comando de reinicio universal
     if text.lower() in ["menu", "menú", "inicio", "cancelar", "reiniciar", "hola", "buenas"]:

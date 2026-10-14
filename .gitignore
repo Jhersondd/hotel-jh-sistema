@@ -1,6 +1,9 @@
 # Archivos de entorno y credenciales sensibles
 .env
 bot/credentials.json
+bot/data/reservations.json
+bot/data/sales.json
+bot/data/chat_logs.json
 *.pem
 *.key
 

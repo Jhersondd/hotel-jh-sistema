@@ -201,7 +201,28 @@ async def list_rooms():
     """
     Lista el catálogo de habitaciones y su estado.
     """
-    return sheets_service.get_all_rooms()
+    return storage_service.get_all_rooms()
+
+@app.get("/sales")
+async def list_sales():
+    """
+    Retorna el libro de ventas comerciales registradas.
+    """
+    return storage_service.get_all_sales()
+
+@app.get("/sales/analytics")
+async def sales_analytics():
+    """
+    Retorna métricas consolidadas de ventas e ingresos para gerencia.
+    """
+    return storage_service.get_sales_analytics()
+
+@app.get("/chat-logs")
+async def list_chat_logs(limit: int = 100):
+    """
+    Retorna los registros de conversaciones para análisis de embudo comercial y humanización del agente.
+    """
+    return storage_service.get_chat_logs(limit=limit)
 
 if __name__ == "__main__":
     import uvicorn

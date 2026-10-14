@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vincular WhatsApp - Hotel JH</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 32px;
+      width: 100%;
+      max-width: 480px;
+      text-align: center;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 8px; color: #38bdf8; }
+    p { color: #94a3b8; font-size: 0.95rem; line-height: 1.5; margin-bottom: 24px; }
+    .qr-container {
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 12px;
+      display: inline-block;
+      margin: 0 auto 24px auto;
+      min-width: 280px;
+      min-height: 280px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .qr-container img {
+      width: 250px;
+      height: 250px;
+      display: block;
+    }
+    .badge {
+      display: inline-block;
+      padding: 6px 16px;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .badge-connecting { background: #fef08a; color: #854d0e; }
+    .badge-connected { background: #bbf7d0; color: #166534; }
+    .badge-error { background: #fecaca; color: #991b1b; }
+    ol {
+      text-align: left;
+      color: #cbd5e1;
+      font-size: 0.9rem;
+      padding-left: 20px;
+      margin-bottom: 24px;
+      line-height: 1.7;
+    }
+    button {
+      background: #0284c7;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: background 0.2s;
+    }
+    button:hover { background: #0369a1; }
+    .loader {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #0284c7;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🏨 Hotel JH - Vincular WhatsApp</h1>
+    <p>Escanea este código QR con el WhatsApp del hotel para activar las respuestas automáticas y el CRM.</p>
+
+    <div id="statusBadge" class="badge badge-connecting">⏳ Comprobando estado...</div>
+
+    <div class="qr-container" id="qrWrapper">
+      <div class="loader" id="spinner"></div>
+      <img id="qrImage" style="display:none;" alt="Código QR WhatsApp" />
+    </div>
+
+    <ol>
+      <li>Abre <b>WhatsApp</b> en tu teléfono.</li>
+      <li>Toca <b>Ajustes</b> o los 3 puntos (⋮) y selecciona <b>Dispositivos vinculados</b>.</li>
+      <li>Toca <b>Vincular un dispositivo</b> y apunta la cámara a esta pantalla.</li>
+    </ol>
+
+    <button onclick="fetchQRCode()">🔄 Actualizar Código QR</button>
+  </div>
+
+  <script>
+    const API_URL = "http://localhost:8080";
+    const API_KEY = "EvolutionHotelSecretKey2026!";
+    const INSTANCE = "hotel_principal";
+
+    async function checkState() {
+      try {
+        const res = await fetch(`${API_URL}/instance/connectionState/${INSTANCE}`, {
+          headers: { "apikey": API_KEY }
+        });
+        const data = await res.json();
+        const state = data.instance ? data.instance.state : data.state;
+        const badge = document.getElementById("statusBadge");
+
+        if (state === "open" || state === "connected") {
+          badge.className = "badge badge-connected";
+          badge.textContent = "✅ ¡WhatsApp Conectado con Éxito!";
+          document.getElementById("qrWrapper").innerHTML = "<div style='color:#16a34a; font-weight:700; font-size:1.1rem; padding: 20px;'>🎉 ¡Sesión vinculada activamente! Ya puedes recibir mensajes de huéspedes.</div>";
+          return true;
+        } else {
+          badge.className = "badge badge-connecting";
+          badge.textContent = "📲 Esperando escaneo de QR...";
+          return false;
+        }
+      } catch (err) {
+        console.error(err);
+        return false;
+      }
+    }
+
+    async function fetchQRCode() {
+      const isConnected = await checkState();
+      if (isConnected) return;
+
+      const spinner = document.getElementById("spinner");
+      const img = document.getElementById("qrImage");
+      spinner.style.display = "block";
+      img.style.display = "none";
+
+      try {
+        const res = await fetch(`${API_URL}/instance/connect/${INSTANCE}`, {
+          headers: { "apikey": API_KEY }
+        });
+        const data = await res.json();
+
+        if (data.base64) {
+          img.src = data.base64.startsWith("data:") ? data.base64 : `data:image/png;base64,${data.base64}`;
+          img.style.display = "block";
+          spinner.style.display = "none";
+        } else if (data.qrcode && data.qrcode.base64) {
+          img.src = data.qrcode.base64;
+          img.style.display = "block";
+          spinner.style.display = "none";
+        } else if (data.code) {
+          img.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(data.code)}`;
+          img.style.display = "block";
+          spinner.style.display = "none";
+        }
+      } catch (e) {
+        console.error("Error al obtener QR:", e);
+      }
+    }
+
+    // Inicializar y verificar periódicamente cada 6 segundos
+    fetchQRCode();
+    setInterval(checkState, 6000);
+  </script>
+</body>
+</html>

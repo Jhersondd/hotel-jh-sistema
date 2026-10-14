@@ -168,8 +168,9 @@ services:
       CHECKIN_TIME: "${CHECKIN_TIME:-14:00}"
       CHECKOUT_TIME: "${CHECKOUT_TIME:-11:00}"
       BANK_TRANSFER_DETAILS: "${BANK_TRANSFER_DETAILS:-Banco: BCP / BBVA / Yape al 987654321 a nombre de Hotel JH}"
+      IGNORED_PHONE_NUMBERS: "${IGNORED_PHONE_NUMBERS:-}"
     volumes:
-      - ./bot/credentials.json:/app/credentials.json:ro
+      - ./bot:/app
     depends_on:
       redis:
         condition: service_healthy

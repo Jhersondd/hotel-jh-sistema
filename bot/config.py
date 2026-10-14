@@ -31,6 +31,16 @@ class Settings(BaseSettings):
     TTLOCK_USERNAME: str = ""
     TTLOCK_PASSWORD: str = ""
 
+    # Chats y Contactos Archivados / Ignorados
+    IGNORED_PHONE_NUMBERS: str = ""
+
+    @property
+    def ignored_phones(self) -> set:
+        if not self.IGNORED_PHONE_NUMBERS:
+            return set()
+        clean = [p.replace("+", "").replace(" ", "").strip() for p in self.IGNORED_PHONE_NUMBERS.split(",") if p.strip()]
+        return set(clean)
+
     class Config:
         env_file = ".env"
         extra = "ignore"

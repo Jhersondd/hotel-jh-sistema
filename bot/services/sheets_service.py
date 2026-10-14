@@ -193,8 +193,47 @@ class SheetsService:
                 "Bot Autónomo",
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             ]
-            ws.append_row(row)
         except Exception as e:
             logger.warning(f"Error registrando lead en Google Sheets: {e}")
 
+    def get_ignored_phones_from_sheet(self) -> set:
+        """
+        Obtiene los teléfonos ignorados / archivados desde la pestaña 'Chats_Ignorados'.
+        """
+        if not self.sheet:
+            return set()
+        try:
+            ws = self.sheet.worksheet("Chats_Ignorados")
+            records = ws.get_all_records()
+            phones = set()
+            for r in records:
+                val = str(r.get("telefono") or r.get("Telefono") or r.get("TELEFONO") or "").strip()
+                val = val.replace("+", "").replace(" ", "").replace("-", "")
+                if val:
+                    phones.add(val)
+            return phones
+        except Exception as e:
+            return set()
+
+    def add_ignored_phone_to_sheet(self, phone: str, name: str = "", reason: str = "Archivado"):
+        """
+        Registra un nuevo teléfono ignorado en la pestaña 'Chats_Ignorados' de Google Sheets.
+        """
+        if not self.sheet:
+            return False
+        try:
+            try:
+                ws = self.sheet.worksheet("Chats_Ignorados")
+            except Exception:
+                ws = self.sheet.add_worksheet(title="Chats_Ignorados", rows=100, cols=5)
+                ws.append_row(["Telefono", "Nombre", "Motivo", "Fecha_Agregado"])
+            clean = phone.replace("+", "").replace(" ", "").replace("-", "").strip()
+            ws.append_row([clean, name, reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+            logger.info(f"Teléfono {clean} registrado como ignorado en Google Sheets")
+            return True
+        except Exception as e:
+            logger.error(f"Error agregando teléfono ignorado a Google Sheets: {e}")
+            return False
+
 sheets_service = SheetsService()
+

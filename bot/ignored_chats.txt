@@ -1,0 +1,19 @@
+# ==============================================================================
+# HOTEL JH - LISTA DE CHATS Y CONTACTOS IGNORADOS / ARCHIVADOS
+# ==============================================================================
+# Los números aquí listados NUNCA activarán el bot automático de WhatsApp.
+#
+# INSTRUCCIONES:
+# 1. Agrega un número por línea (con o sin código de país, ej: 51912345678 o 912345678).
+# 2. Puedes añadir un comentario después del signo # para identificar a quién pertenece.
+# 3. Guarda este archivo y el bot lo aplicará inmediatamente sin reiniciar.
+#
+# TAMBIÉN PUEDES AGREGAR NÚMEROS:
+# - En Google Sheets (Pestaña 'Chats_Ignorados')
+# - En Chatwoot (asignándole la etiqueta 'archivado' o 'personal' a la conversación)
+# - Enviando por WhatsApp el comando: /archivar 519XXXXXXXX
+# ==============================================================================
+
+# Contactos personales y archivados (ejemplos):
+# 51999999999 # Familiar
+# 51988888888 # Proveedor lavandería

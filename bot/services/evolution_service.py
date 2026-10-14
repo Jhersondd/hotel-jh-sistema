@@ -25,14 +25,9 @@ class EvolutionService:
         url = f"{self.base_url}/message/sendText/{self.instance}"
         payload = {
             "number": clean_phone,
-            "options": {
-                "delay": 1200,
-                "presence": "composing",
-                "linkPreview": False
-            },
-            "textMessage": {
-                "text": message
-            }
+            "text": message,
+            "delay": 1200,
+            "linkPreview": False
         }
 
         try:

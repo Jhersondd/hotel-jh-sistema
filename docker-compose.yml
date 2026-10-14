@@ -42,6 +42,8 @@ services:
     image: chatwoot/chatwoot:v3.13.0
     container_name: hotel_chatwoot_web
     restart: unless-stopped
+    entrypoint: docker/entrypoints/rails.sh
+    command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
     ports:
       - "${CHATWOOT_PORT:-3000}:3000"
     environment:
@@ -108,8 +110,12 @@ services:
     environment:
       SERVER_URL: ${EVOLUTION_SERVER_URL:-http://localhost:8080}
       AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:-EvolutionHotelSecretKey2026!}
-      DATABASE_PROVIDER: local
-      DATABASE_CONNECTION_URI: redis://redis:6379
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-HotelSecret2026!}@postgres:5432/${POSTGRES_DB:-chatwoot_production}?schema=evolution
+      DATABASE_CONNECTION_CLIENT_NAME: evolution_v2
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379
       DATABASE_SAVE_DATA_INSTANCE: "true"
       DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
       DATABASE_SAVE_MESSAGE_UPDATE: "true"
@@ -121,6 +127,8 @@ services:
     volumes:
       - evolution_instances:/evolution/instances
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     networks:

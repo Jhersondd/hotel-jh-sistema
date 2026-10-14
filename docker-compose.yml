@@ -68,7 +68,9 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - hotel_net
+      hotel_net:
+        aliases:
+          - chatwoot.local
 
   chatwoot_worker:
     image: chatwoot/chatwoot:v3.13.0
@@ -102,7 +104,7 @@ services:
   # 3. EVOLUTION API (WHATSAPP WEB BRIDGE NATIVO CON CHATWOOT)
   # ============================================================================
   evolution_api:
-    image: evoapicloud/evolution-api:v2.2.3
+    image: evoapicloud/evolution-api:latest
     container_name: hotel_evolution_api
     restart: unless-stopped
     ports:
@@ -124,9 +126,6 @@ services:
       # Integracion nativa Chatwoot
       CHATWOOT_ENABLED: "true"
       LOG_LEVEL: "INFO"
-      CONFIG_SESSION_PHONE_VERSION: "2.3000.1030831524"
-      CONFIG_SESSION_PHONE_CLIENT: "Chrome"
-      CONFIG_SESSION_PHONE_NAME: "Chrome"
     volumes:
       - evolution_instances:/evolution/instances
     depends_on:
@@ -134,6 +133,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - hotel_net
 
@@ -175,7 +176,9 @@ services:
       evolution_api:
         condition: service_started
     networks:
-      - hotel_net
+      hotel_net:
+        aliases:
+          - bot.local
 
 volumes:
   postgres_data:

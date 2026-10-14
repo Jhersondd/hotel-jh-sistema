@@ -7,7 +7,9 @@ from services.chatwoot_service import chatwoot_service
 from services.sheets_service import sheets_service
 from services.evolution_service import evolution_service
 from services.filter_service import filter_service
-from state_machine import handle_guest_message
+from services.storage_service import storage_service
+from services.notification_service import notification_service
+from state_machine import handle_guest_message, confirm_and_deliver_pin
 
 # Configuración de logs
 logging.basicConfig(
@@ -30,6 +32,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def startup_event():
+    import asyncio
+    asyncio.create_task(notification_service.start_scheduler())
+    logger.info("Scheduler de notificaciones internas de check-out iniciado.")
+
 @app.get("/health")
 async def health_check():
     """
@@ -37,13 +45,15 @@ async def health_check():
     """
     evolution_status = await evolution_service.check_instance_status()
     ignored_count = len(filter_service.get_all_ignored_phones())
+    reservations_count = len(storage_service.get_all_reservations())
     return {
         "status": "healthy",
         "hotel": settings.HOTEL_NAME,
         "redis_connected": redis_service.client is not None,
         "sheets_connected": sheets_service.sheet is not None,
         "evolution_status": evolution_status,
-        "archived_chats_ignored_count": ignored_count
+        "archived_chats_ignored_count": ignored_count,
+        "active_reservations_count": reservations_count
     }
 
 @app.post("/webhook/evolution")
@@ -98,13 +108,11 @@ async def evolution_webhook(request: Request, background_tasks: BackgroundTasks)
         return {"status": "ignored", "reason": "empty_text"}
 
     # 1. FILTRO ESTRICTO DE CHATS ARCHIVADOS / CONTACTOS IGNORADOS
-    # Si el chat está en la lista de ignorados (.env, archivo ignored_chats.txt, Google Sheets o Redis),
-    # el bot NUNCA responderá a este chat.
     if filter_service.is_phone_ignored(phone):
         logger.info(f"El chat con {phone} está ARCHIVADO / IGNORADO. Bot silenciado.")
         return {"status": "ignored", "reason": "archived_or_blacklisted", "phone": phone}
 
-    # 2. Comandos rápidos de administración para archivar/silenciar números al instante
+    # 2. Comandos rápidos de administración
     if text.startswith("/archivar ") or text.startswith("/ignorar "):
         parts = text.split(" ")
         if len(parts) >= 2:
@@ -113,16 +121,28 @@ async def evolution_webhook(request: Request, background_tasks: BackgroundTasks)
             await evolution_service.send_text(phone, f"✅ Chat {target} archivado e ignorado con éxito. El bot ya no le responderá.")
             return {"status": "admin_command_executed", "action": "ignored", "target": target}
 
-    # 3. Filtro de Idempotencia en Redis (evitar procesar duplicados si Evolution reintenta)
+    # Comando para aprobar pago de reserva desde WhatsApp
+    if text.startswith("/aprobar"):
+        parts = text.split(" ")
+        target = phone
+        if len(parts) >= 2:
+            target = filter_service.clean_phone(parts[1])
+        approved = await confirm_and_deliver_pin(target)
+        if approved:
+            await evolution_service.send_text(phone, f"✅ Pago verificado y aprobado para {target}. PIN enviado al huésped.")
+            return {"status": "payment_approved", "target": target}
+        else:
+            await evolution_service.send_text(phone, f"⚠️ No se encontró reserva pendiente de validar para {target}.")
+            return {"status": "approve_failed", "target": target}
+
+    # 3. Filtro de Idempotencia en Redis
     if msg_id and redis_service.client:
         lock_msg_key = f"processed_msg:{msg_id}"
         if not redis_service.client.set(lock_msg_key, "1", nx=True, ex=120):
             logger.info(f"Mensaje {msg_id} ya fue procesado. Descartando reintento.")
             return {"status": "ignored", "reason": "duplicate_message"}
 
-    # 4. Verificación de Handover en Chatwoot:
-    # Si un agente comercial humano está atendiendo la conversación ('open', 'snoozed', con etiquetas de archivo o asignada),
-    # el bot NO responde.
+    # 4. Verificación de Handover en Chatwoot
     is_human_handling = await chatwoot_service.is_agent_active(phone)
     if is_human_handling:
         logger.info(f"El chat con {phone} está en manos de un agente humano o archivado en CRM. Bot silenciado.")
@@ -132,6 +152,22 @@ async def evolution_webhook(request: Request, background_tasks: BackgroundTasks)
     background_tasks.add_task(handle_guest_message, phone, push_name, text)
 
     return {"status": "queued", "phone": phone}
+
+@app.get("/reservations")
+async def list_reservations():
+    """
+    Retorna el listado completo de reservas registradas.
+    """
+    return storage_service.get_all_reservations()
+
+@app.post("/reservations/{phone}/approve")
+async def approve_reservation_by_phone(phone: str):
+    """
+    Endpoint para aprobar el pago de una reserva pendiente y emitir PIN de cerradura.
+    """
+    clean = filter_service.clean_phone(phone)
+    success = await confirm_and_deliver_pin(clean)
+    return {"success": success, "phone": clean}
 
 @app.get("/ignored-phones")
 async def list_ignored_phones():

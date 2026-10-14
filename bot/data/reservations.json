@@ -1,0 +1,16 @@
+[
+  {
+    "id_reserva": "RES-2026-9999",
+    "id_habitacion": "HAB-102",
+    "nombre_huesped": "Jherson Concha",
+    "dni_documento": "47575542",
+    "telefono_wa": "51910127301",
+    "fecha_ingreso": "2026-10-15",
+    "fecha_salida": "2026-10-18",
+    "pin_acceso": "789123#",
+    "estado_reserva": "CONFIRMADA",
+    "monto_total": 570.0,
+    "estado_pago": "PAGADO",
+    "metodo_pago": "Yape"
+  }
+]

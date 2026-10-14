@@ -1,0 +1,26 @@
+[
+  {
+    "id_habitacion": "HAB-101",
+    "tipo": "Matrimonial Estándar",
+    "precio_base": 150.0,
+    "estado_operativo": "Disponible",
+    "id_cerradura_iot": "lock_101",
+    "descripcion": "Cama Queen, baño privado, TV Smart, Wi-Fi 200MB, agua caliente."
+  },
+  {
+    "id_habitacion": "HAB-102",
+    "tipo": "Doble Superior",
+    "precio_base": 190.0,
+    "estado_operativo": "Disponible",
+    "id_cerradura_iot": "lock_102",
+    "descripcion": "2 camas de 1.5 plazas, baño privado, escritorio, vista panorámica."
+  },
+  {
+    "id_habitacion": "HAB-201",
+    "tipo": "Suite Matrimonial Jacuzzi",
+    "precio_base": 280.0,
+    "estado_operativo": "Disponible",
+    "id_cerradura_iot": "lock_201",
+    "descripcion": "Cama King, Jacuzzi privado, minibar, aire acondicionado, balcón."
+  }
+]

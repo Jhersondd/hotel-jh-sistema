@@ -60,6 +60,7 @@ services:
       REDIS_URL: redis://redis:6379
       ACTIVE_STORAGE_SERVICE: local
       ENABLE_ACCOUNT_SIGNUP: "true"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     volumes:
       - chatwoot_data:/app/storage
     depends_on:
@@ -90,6 +91,7 @@ services:
       POSTGRES_DATABASE: ${POSTGRES_DB:-chatwoot_production}
       REDIS_URL: redis://redis:6379
       ACTIVE_STORAGE_SERVICE: local
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     volumes:
       - chatwoot_data:/app/storage
     depends_on:

@@ -124,6 +124,9 @@ services:
       # Integracion nativa Chatwoot
       CHATWOOT_ENABLED: "true"
       LOG_LEVEL: "INFO"
+      CONFIG_SESSION_PHONE_VERSION: "2.3000.1030831524"
+      CONFIG_SESSION_PHONE_CLIENT: "Chrome"
+      CONFIG_SESSION_PHONE_NAME: "Chrome"
     volumes:
       - evolution_instances:/evolution/instances
     depends_on:

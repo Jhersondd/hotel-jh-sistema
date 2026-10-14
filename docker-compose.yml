@@ -1,0 +1,177 @@
+services:
+  # ============================================================================
+  # 1. BASE DE DATOS Y CACHE ($0 OPEN SOURCE)
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: hotel_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-chatwoot_production}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-HotelSecret2026!}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - hotel_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: hotel_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - hotel_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================================
+  # 2. CRM CHATWOOT COMMUNITY EDITION ($0 LICENCIAS)
+  # ============================================================================
+  chatwoot_web:
+    image: chatwoot/chatwoot:v3.13.0
+    container_name: hotel_chatwoot_web
+    restart: unless-stopped
+    ports:
+      - "${CHATWOOT_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      RAILS_ENV: production
+      INSTALLATION_ENV: docker
+      SECRET_KEY_BASE: ${CHATWOOT_SECRET_KEY_BASE:-9a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b}
+      FRONTEND_URL: ${CHATWOOT_FRONTEND_URL:-http://localhost:3000}
+      DEFAULT_LOCALE: es
+      POSTGRES_HOST: postgres
+      POSTGRES_USERNAME: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-HotelSecret2026!}
+      POSTGRES_DATABASE: ${POSTGRES_DB:-chatwoot_production}
+      REDIS_URL: redis://redis:6379
+      ACTIVE_STORAGE_SERVICE: local
+      ENABLE_ACCOUNT_SIGNUP: "true"
+    volumes:
+      - chatwoot_data:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hotel_net
+
+  chatwoot_worker:
+    image: chatwoot/chatwoot:v3.13.0
+    container_name: hotel_chatwoot_worker
+    restart: unless-stopped
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+    environment:
+      NODE_ENV: production
+      RAILS_ENV: production
+      INSTALLATION_ENV: docker
+      SECRET_KEY_BASE: ${CHATWOOT_SECRET_KEY_BASE:-9a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b}
+      FRONTEND_URL: ${CHATWOOT_FRONTEND_URL:-http://localhost:3000}
+      DEFAULT_LOCALE: es
+      POSTGRES_HOST: postgres
+      POSTGRES_USERNAME: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-HotelSecret2026!}
+      POSTGRES_DATABASE: ${POSTGRES_DB:-chatwoot_production}
+      REDIS_URL: redis://redis:6379
+      ACTIVE_STORAGE_SERVICE: local
+    volumes:
+      - chatwoot_data:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hotel_net
+
+  # ============================================================================
+  # 3. EVOLUTION API (WHATSAPP WEB BRIDGE NATIVO CON CHATWOOT)
+  # ============================================================================
+  evolution_api:
+    image: atendai/evolution-api:v2.1.2
+    container_name: hotel_evolution_api
+    restart: unless-stopped
+    ports:
+      - "${EVOLUTION_PORT:-8080}:8080"
+    environment:
+      SERVER_URL: ${EVOLUTION_SERVER_URL:-http://localhost:8080}
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:-EvolutionHotelSecretKey2026!}
+      DATABASE_PROVIDER: local
+      DATABASE_CONNECTION_URI: redis://redis:6379
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      DATABASE_SAVE_MESSAGE_UPDATE: "true"
+      DATABASE_SAVE_DATA_CONTACTS: "true"
+      DATABASE_SAVE_DATA_CHATS: "true"
+      # Integracion nativa Chatwoot
+      CHATWOOT_ENABLED: "true"
+      LOG_LEVEL: "INFO"
+    volumes:
+      - evolution_instances:/evolution/instances
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - hotel_net
+
+  # ============================================================================
+  # 4. BOT & CORE HOTELERO (FASTAPI PYTHON - LOGICA AUTONOMA)
+  # ============================================================================
+  hotel_bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    container_name: hotel_bot
+    restart: unless-stopped
+    ports:
+      - "${BOT_PORT:-5000}:5000"
+    environment:
+      PORT: "5000"
+      EVOLUTION_URL: http://evolution_api:8080
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-EvolutionHotelSecretKey2026!}
+      EVOLUTION_INSTANCE_NAME: ${EVOLUTION_INSTANCE_NAME:-hotel_principal}
+      CHATWOOT_URL: http://chatwoot_web:3000
+      CHATWOOT_API_TOKEN: ${CHATWOOT_API_TOKEN:-}
+      CHATWOOT_ACCOUNT_ID: ${CHATWOOT_ACCOUNT_ID:-1}
+      REDIS_URL: redis://redis:6379/0
+      GOOGLE_SHEET_ID: ${GOOGLE_SHEET_ID:-}
+      GOOGLE_CREDENTIALS_FILE: /app/credentials.json
+      TTLOCK_CLIENT_ID: ${TTLOCK_CLIENT_ID:-}
+      TTLOCK_CLIENT_SECRET: ${TTLOCK_CLIENT_SECRET:-}
+      TTLOCK_USERNAME: ${TTLOCK_USERNAME:-}
+      TTLOCK_PASSWORD: ${TTLOCK_PASSWORD:-}
+      HOTEL_NAME: "${HOTEL_NAME:-Hotel JH}"
+      CHECKIN_TIME: "${CHECKIN_TIME:-14:00}"
+      CHECKOUT_TIME: "${CHECKOUT_TIME:-11:00}"
+      BANK_TRANSFER_DETAILS: "${BANK_TRANSFER_DETAILS:-Banco: BCP / BBVA / Yape al 987654321 a nombre de Hotel JH}"
+    volumes:
+      - ./bot/credentials.json:/app/credentials.json:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+      evolution_api:
+        condition: service_started
+    networks:
+      - hotel_net
+
+volumes:
+  postgres_data:
+  redis_data:
+  chatwoot_data:
+  evolution_instances:
+
+networks:
+  hotel_net:
+    driver: bridge

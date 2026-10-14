@@ -28,7 +28,7 @@ class ChatwootService:
         IGNORED_LABELS = {
             "archivado", "archived", "ignorado", "ignorar", 
             "personal", "no_bot", "blacklist", "bloqueado", 
-            "proveedor", "familiar"
+            "proveedor", "familiar", "atencion_humana", "humano", "agente"
         }
 
         try:
@@ -62,16 +62,20 @@ class ChatwootService:
                 
                 conv_data = conv_resp.json().get("payload", [])
                 for conv in conv_data:
-                    status = conv.get("status")
-                    # Si el estado es 'open' o hay un agente asignado, el humano tiene el control
-                    if status in ["open", "snoozed"] or conv.get("assignee_id") is not None:
-                        logger.info(f"Conversación con {phone} está en modo AGENTE HUMANO (status: {status})")
+                    # Si hay un agente humano asignado explícitamente a la conversación
+                    if conv.get("assignee_id") is not None:
+                        logger.info(f"Conversación con {phone} está asignada a un agente humano (#{conv.get('assignee_id')}). Bot silenciado.")
                         return True
 
-                    # Verificar etiquetas de la conversación
+                    # Si el estado es snoozed (pospuesto)
+                    if conv.get("status") == "snoozed":
+                        logger.info(f"Conversación con {phone} está en pausa/snoozed. Bot silenciado.")
+                        return True
+
+                    # Verificar etiquetas de atención humana o archivo
                     labels = set(l.lower() for l in (conv.get("labels") or []))
                     if labels.intersection(IGNORED_LABELS):
-                        logger.info(f"Conversación con {phone} tiene etiqueta archivada/ignorada {labels}. Bot silenciado.")
+                        logger.info(f"Conversación con {phone} tiene etiqueta de control humano {labels}. Bot silenciado.")
                         return True
 
             return False
@@ -81,7 +85,7 @@ class ChatwootService:
 
     async def handover_to_agent(self, phone: str, reason: str = "Solicitud de asistencia humana"):
         """
-        Transfiere la conversación al CRM marcándola como 'open' y dejando una nota privada.
+        Transfiere la conversación al CRM marcándola como 'open', agregando etiqueta 'atencion_humana' y dejando una nota privada.
         """
         if not self.token:
             return
@@ -109,11 +113,15 @@ class ChatwootService:
                 active_conv = conv_data[0]
                 conv_id = active_conv["id"]
 
-                # 1. Cambiar estado a 'open'
+                # 1. Asegurar estado 'open'
                 status_url = f"{self.base_url}/api/v1/accounts/{self.account_id}/conversations/{conv_id}/toggle_status"
                 await client.post(status_url, json={"status": "open"}, headers=self.headers)
 
-                # 2. Agregar nota privada
+                # 2. Agregar etiqueta 'atencion_humana' para pausar el bot de inmediato
+                labels_url = f"{self.base_url}/api/v1/accounts/{self.account_id}/conversations/{conv_id}/labels"
+                await client.post(labels_url, json={"labels": ["atencion_humana"]}, headers=self.headers)
+
+                # 3. Agregar nota privada interna para el equipo
                 notes_url = f"{self.base_url}/api/v1/accounts/{self.account_id}/conversations/{conv_id}/messages"
                 note_payload = {
                     "content": f"🤖 **BOT HOTELERO:** Conversación transferida al asesor comercial.\nMotivo: {reason}",

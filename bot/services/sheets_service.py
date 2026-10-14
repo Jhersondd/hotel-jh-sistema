@@ -92,11 +92,18 @@ class SheetsService:
                 estado = str(r.get("estado_reserva", "")).upper()
                 if estado not in ["CANCELADA", "CHECKOUT"]:
                     reservas.append({
-                        "id_reserva": str(r.get("id_reserva")),
-                        "id_habitacion": str(r.get("id_habitacion")),
-                        "fecha_ingreso": str(r.get("fecha_ingreso")),
-                        "fecha_salida": str(r.get("fecha_salida")),
-                        "estado_reserva": estado
+                        "id_reserva": str(r.get("id_reserva", "")),
+                        "id_habitacion": str(r.get("id_habitacion", "")),
+                        "nombre_huesped": str(r.get("nombre_huesped", "")),
+                        "dni_documento": str(r.get("dni_documento", "")),
+                        "telefono_wa": str(r.get("telefono_wa", "")),
+                        "fecha_ingreso": str(r.get("fecha_ingreso", "")),
+                        "fecha_salida": str(r.get("fecha_salida", "")),
+                        "pin_acceso": str(r.get("pin_acceso", "")),
+                        "estado_reserva": estado,
+                        "monto_total": float(r.get("monto_total", 0.0) or 0.0),
+                        "estado_pago": str(r.get("estado_pago", "")),
+                        "metodo_pago": str(r.get("metodo_pago", ""))
                     })
             return reservas
         except Exception as e:
@@ -162,6 +169,7 @@ class SheetsService:
                 res_data.get("id_reserva", ""),
                 res_data.get("id_habitacion", ""),
                 res_data.get("nombre_huesped", ""),
+                res_data.get("dni_documento", ""),
                 res_data.get("telefono_wa", ""),
                 res_data.get("fecha_ingreso", ""),
                 res_data.get("fecha_salida", ""),

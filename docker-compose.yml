@@ -183,6 +183,19 @@ services:
         aliases:
           - bot.local
 
+  # ============================================================================
+  # 5. TUNEL SEGURO HTTPS CLOUDFLARE (ACCESO MOVIL APP PLAY STORE)
+  # ============================================================================
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: hotel_tunnel
+    restart: unless-stopped
+    command: tunnel --url http://chatwoot_web:3000 --no-autoupdate
+    networks:
+      - hotel_net
+    depends_on:
+      - chatwoot_web
+
 volumes:
   postgres_data:
   redis_data:
